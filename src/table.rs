@@ -1,6 +1,6 @@
 pub struct Table {
-    width: u8,
-    height: u8,
+    pub width: u8,
+    pub height: u8,
     fields: Vec<Option<Figure>>,
 }
 
@@ -50,6 +50,10 @@ impl Table {
 
     pub fn get(&self, col: u8, row: u8) -> Option<Figure> {
         self.fields[self.offset(col, row)]
+    }
+
+    pub fn row(&self, row: u8) -> &[Option<Figure>] {
+        self.fields.as_slice()
     }
 
 }

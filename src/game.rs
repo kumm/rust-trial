@@ -93,6 +93,10 @@ impl Game {
     pub fn set_player(&mut self, figure: Figure, player: Box<dyn Player>) {
         self.players[figure as usize] = player;
     }
+
+    pub fn table(&self) -> &Table {
+        &self.table
+    }
 }
 
 #[cfg(test)]
