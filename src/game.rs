@@ -65,7 +65,7 @@ impl Game {
                 self.result = Some(GameResult::Winner(self.current.opponent()));
             }
             Action::Put { col, row } => {
-                if !self.table.put(col, row, self.current) {
+                if !self.table.put(Cell {col, row}, self.current) {
                     return Err(Error::InvalidStep);
                 };
                 // detect win
