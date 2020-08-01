@@ -2,7 +2,7 @@ use crate::table::*;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 enum Action {
-    Put { col: u8, row: u8 },
+    Put(Cell),
     Quit,
 }
 
@@ -64,11 +64,12 @@ impl Game {
             Action::Quit => {
                 self.result = Some(GameResult::Winner(self.current.opponent()));
             }
-            Action::Put { col, row } => {
-                if !self.table.put(Cell {col, row}, self.current) {
+            Action::Put(cell) => {
+                let cell_value = &mut self.table[cell];
+                if cell_value.is_some() {
                     return Err(Error::InvalidStep);
-                };
-                // detect win
+                }
+                cell_value.replace(self.current);
             }
         };
         Ok(self.turn_over(action))
@@ -151,8 +152,8 @@ mod tests {
     #[test]
     fn turn_put() {
         let table = Table::new(10, 10);
-        let player_o = TestPlayer { action: Action::Put { col: 5, row: 5 } };
-        let player_x = TestPlayer { action: Action::Put { col: 5, row: 5 } };
+        let player_o = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
+        let player_x = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
         let mut game = Game::new(table, Figure::X);
         game.set_player(Figure::O, Box::new(player_o));
         game.set_player(Figure::X, Box::new(player_x));
@@ -160,7 +161,7 @@ mod tests {
         let result = game.turn();
         assert_eq!(Ok(TurnEvent {
             figure: Figure::X,
-            action: Action::Put { col: 5, row: 5 },
+            action: Action::Put(Cell { col: 5, row: 5 }),
             result: None,
         }), result);
         assert!(!game.is_over());
@@ -169,12 +170,12 @@ mod tests {
         assert_eq!(Err(Error::InvalidStep), error);
         assert!(!game.is_over());
 
-        let x = TestPlayer { action: Action::Put { col: 1, row: 1 } };
+        let x = TestPlayer { action: Action::Put(Cell { col: 1, row: 1 }) };
         game.set_player(Figure::O, Box::new(x));
         let result = game.turn();
         assert_eq!(Ok(TurnEvent {
             figure: Figure::O,
-            action: Action::Put { col: 1, row: 1 },
+            action: Action::Put(Cell { col: 1, row: 1 }),
             result: None,
         }), result);
         assert!(!game.is_over());

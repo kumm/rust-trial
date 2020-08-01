@@ -1,8 +1,8 @@
 use std::ops::{Index, IndexMut};
 
 pub struct Table {
-    col_count: u8,
-    row_count: u8,
+    col_count: usize,
+    row_count: usize,
     values: Vec<CellValue>,
 }
 type CellValue = Option<Figure>;
@@ -25,8 +25,8 @@ impl Figure {
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub struct Cell {
-    pub row: u8,
-    pub col: u8,
+    pub row: usize,
+    pub col: usize,
 }
 
 impl Cell {
@@ -40,7 +40,7 @@ impl Cell {
 }
 
 impl Table {
-    pub fn new(col_count: u8, row_count: u8) -> Table {
+    pub fn new(row_count: usize, col_count: usize) -> Table {
         Table {
             col_count,
             row_count,
@@ -48,22 +48,11 @@ impl Table {
         }
     }
 
-    pub fn put(&mut self, cell: Cell, figure: Figure) -> bool {
-        let value = &mut self[cell];
-        match value {
-            Some(_) => false,
-            free_cell => {
-                free_cell.replace(figure);
-                true
-            }
-        }
-    }
-
-    pub fn row_count(&self) -> u8 {
+    pub fn row_count(&self) -> usize {
         self.row_count
     }
 
-    pub fn col_count(&self) -> u8 {
+    pub fn col_count(&self) -> usize {
         self.col_count
     }
 
@@ -76,7 +65,7 @@ impl Table {
 }
 
 struct Iter<'a> {
-    row: u8,
+    row: usize,
     table: &'a Table,
 }
 
@@ -84,12 +73,12 @@ impl<'a> Iterator for Iter<'a> {
     type Item = &'a [CellValue];
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.row < self.table.row_count {
+        return if self.row < self.table.row_count {
             let values = &self.table[self.row];
             self.row = self.row + 1;
-            return Some(values);
+            Some(values)
         } else {
-            return None;
+            None
         }
     }
 
@@ -99,10 +88,10 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl Index<u8> for Table  {
+impl Index<usize> for Table  {
     type Output = [CellValue];
 
-    fn index(&self, row: u8) -> &Self::Output {
+    fn index(&self, row: usize) -> &Self::Output {
         let start = Cell { col: 0, row }.offset(self);
         let end = Cell { col: self.col_count - 1, row }.offset(self);
         &self.values[start..end + 1]
@@ -131,7 +120,7 @@ mod tests {
 
     #[test]
     fn new_table() {
-        let table = Table::new(12, 10);
+        let table = Table::new(10, 12);
         assert_eq!(None, table[Cell { row: 0, col: 0 }]);
         assert_eq!(None, table[Cell { row: 9, col: 11 }]);
     }
@@ -146,36 +135,29 @@ mod tests {
     #[test]
     fn put_to_free_cell() {
         let mut table = Table::new(10, 10);
-        assert!(table.put(Cell { row: 5, col: 5 }, Figure::X));
+        table[Cell {row: 5, col: 5}] = Some(Figure::X);
         assert_eq!(Some(Figure::X), table[Cell {row: 5, col: 5}]);
     }
 
     #[test]
     fn cell() {
         let mut table = Table::new(10, 10);
-        assertCell(&mut table, 0, 0);
-        assertCell(&mut table, 1, 0);
-        assertCell(&mut table, 9, 9);
-        assertCell(&mut table, 0, 9);
+        assert_cell(&mut table, 0, 0);
+        assert_cell(&mut table, 1, 0);
+        assert_cell(&mut table, 9, 9);
+        assert_cell(&mut table, 0, 9);
     }
 
-    fn assertCell(table: &mut Table, col: u8, row: u8) {
+    fn assert_cell(table: &mut Table, col: usize, row: usize) {
         assert_eq!(None, table[Cell {col, row}]);
-        assert!(table.put(Cell {col, row}, Figure::X));
+        table[Cell {col, row}] = Some(Figure::X);
         assert_eq!(Some(Figure::X), table[Cell {col, row}]);
-    }
-
-    #[test]
-    fn put_to_owned_cell() {
-        let mut table = Table::new(10, 10);
-        assert!(table.put(Cell { row: 5, col: 5 }, Figure::X));
-        assert!(!table.put(Cell { row: 5, col: 5 }, Figure::X));
     }
 
     #[test]
     fn iter() {
         let mut table = Table::new(10, 10);
-        table.put(Cell { row: 0, col: 4 }, Figure::X);
+        table[Cell { row: 0, col: 4 }] = Some(Figure::X);
         let row0 = table.iter().nth(0).unwrap();
         let cell04 = row0.iter().nth(4).unwrap();
         assert_eq!(&Some(Figure::X), cell04);

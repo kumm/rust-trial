@@ -20,6 +20,21 @@ struct GameState {
     //game: Game,
 }
 
+trait Paintable {
+    fn paint(&self, ctx: &mut PaintCtx, area: &Rect);
+}
+
+impl Paintable for Figure {
+    fn paint(&self, ctx: &mut PaintCtx, area: &Rect) {}
+
+}
+/*
+impl Paintable for Figure::X {
+    fn paint(&self, ctx: &mut PaintCtx, area: &Rect) {
+
+    }
+}*/
+
 impl TableWidget {
     const MARGIN: Size = Size::new(15.0, 15.0);
     const CELL_SIZE: Size = Size::new(30.0, 30.0);
@@ -27,7 +42,9 @@ impl TableWidget {
     const NET_COLOR: Color = Color::rgb8(0, 0, 128);
     const BG_COLOR: Color = Color::WHITE;
 
-    fn paint_figure(&self, ctx: &mut PaintCtx, col: u8, row: u8, figure: Figure) {}
+    fn paint_figure(&self, ctx: &mut PaintCtx, cell: Cell, figure: Figure) {
+
+    }
 
     fn paint_table(&self, ctx: &mut PaintCtx, table: &Table) {
         let size = ctx.size();
@@ -52,11 +69,15 @@ impl TableWidget {
             ctx.stroke(line, &Self::NET_COLOR, Self::NET_BORDER_SIZE.height)
         }
 
-        for r in 0..table.row_count() {
-            let row = &table[r];
-            for c in 0..row.len() {
-                row[c].map(|figure|
-                    self.paint_figure(ctx, c as u8, r, figure));
+        for row in 0..table.row_count() {
+            let row_values = &table[row];
+            for col in 0..row_values.len() {
+                row_values[col].map(|figure| {
+                    let p0 = Point { x: box_width * col as f64, y: box_height * row as f64 }
+                        + Self::MARGIN.to_vec2();
+                    let rect = Rect::from_origin_size(p0, Self::CELL_SIZE);
+                    figure.paint(ctx, &rect);
+                });
             }
         }
     }
