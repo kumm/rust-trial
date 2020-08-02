@@ -1,7 +1,7 @@
 use crate::table::*;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
-enum Action {
+pub enum Action {
     Put(Cell),
     Quit,
 }
@@ -85,6 +85,10 @@ impl Game {
             self.current = self.current.opponent();
         }
         turn_event
+    }
+
+    pub fn figure_on_turn(&self) -> Figure {
+        self.current
     }
 
     pub fn is_over(&self) -> bool {

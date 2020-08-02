@@ -1,13 +1,14 @@
-mod game;
-mod table;
+use druid::{AppLauncher, Color, Data, Env, Lens, LocalizedString, Point, Rect, Widget, WidgetExt, WindowDesc};
+use druid::kurbo::*;
+use druid::piet::{FontBuilder, ImageFormat, InterpolationMode, Text, TextLayoutBuilder};
+use druid::widget::Controller;
+use druid::widget::prelude::*;
 
 use crate::game::*;
 use crate::table::*;
 
-use druid::kurbo::*;
-use druid::piet::{FontBuilder, ImageFormat, InterpolationMode, Text, TextLayoutBuilder};
-use druid::widget::prelude::*;
-use druid::{AppLauncher, Data, Env, Lens, LocalizedString, Widget, WindowDesc, WidgetExt, Rect, Point, Color};
+mod game;
+mod table;
 
 struct TableWidget {
     game: Game,
@@ -21,7 +22,6 @@ struct GameState {
 }
 
 impl TableWidget {
-    const MARGIN: Size = Size::new(15.0, 15.0);
     const CELL_PADDING: Size = Size::new(5.0, 5.0);
     const CELL_SIZE: Size = Size::new(32.0, 32.0);
     const BORDER_SIZE: Size = Size::new(2.0, 2.0);
@@ -87,9 +87,18 @@ impl Into<Rect> for Cell {
     }
 }
 
+impl From<Point> for Cell {
+    fn from(point: Point) -> Self {
+        Cell {
+            row: (point.y / TableWidget::CELL_SIZE.height) as usize,
+            col: (point.x / TableWidget::CELL_SIZE.width) as usize,
+        }
+    }
+}
+
 
 impl Widget<GameState> for TableWidget {
-    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut GameState, _env: &Env) {}
+    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, _data: &mut GameState, _env: &Env) {}
 
     fn lifecycle(
         &mut self,
@@ -121,25 +130,65 @@ impl Widget<GameState> for TableWidget {
     // It goes event -> update -> layout -> paint, and each method can influence the next.
     // Basically, anything that changes the appearance of a widget causes a paint.
     fn paint(&mut self, ctx: &mut PaintCtx, data: &GameState, _env: &Env) {
-        let size = ctx.size();
-        let rect = Rect::from_origin_size(Point::ORIGIN, size);
-        ctx.fill(rect, &Self::BG_COLOR);
-
-        ctx.with_save(|ctx| {
-            ctx.transform(Affine::translate(Self::MARGIN.to_vec2()));
-            // ctx.clip(Rect::from_origin_size(Point::ORIGIN, size - Self::MARGIN- Self::MARGIN));
-            self.paint_table(ctx, self.game.table())
-        });
+        self.paint_table(ctx, self.game.table())
     }
 }
 
+struct TableController {
+
+}
+
+impl Controller<GameState, TableWidget> for TableController {
+    fn event(&mut self, child: &mut TableWidget, ctx: &mut EventCtx, event: &Event, data: &mut GameState, env: &Env) {
+        match event {
+            Event::MouseDown(_) => {
+                ctx.set_active(true);
+            }
+            Event::MouseUp(up_event) => {
+                if !ctx.is_active() {
+                    return;
+                }
+                ctx.set_active(false);
+                if ctx.is_hot() {
+                    let cell = Cell::from(up_event.pos);
+                    let game = &mut child.game;
+                    let table = game.table();
+                    if cell.is_valid(table) {
+                        game.set_player(game.figure_on_turn(), Box::new(UiPlayer { action: Action::Put(cell) }));
+                        let result = game.turn();
+                        if result.is_ok() {
+                            ctx.request_paint();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+struct UiPlayer {
+    action: Action,
+}
+
+impl Player for UiPlayer {
+    fn step(&self, _table: &Table, _current: Figure) -> Action {
+        self.action
+    }
+}
+
+
 pub fn main() {
-    let mut table = Table::new(10, 10);
-    table[Cell { row: 5, col: 5 }] = Some(Figure::X);
-    table[Cell { row: 5, col: 3 }] = Some(Figure::O);
+    let table = Table::new(10, 10);
     let game = Game::new(table, Figure::O);
 
-    let window = WindowDesc::new(|| TableWidget { game }).title(
+    let controller = TableController {};
+    let widget = TableWidget { game }
+        .controller(controller)
+        .padding((15.0))
+        .background(Color::WHITE);
+
+    let window = WindowDesc::new(|| widget).title(
         LocalizedString::new("window-title").with_placeholder("Gomoku"),
     );
     let game_state = GameState {};

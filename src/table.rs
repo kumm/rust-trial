@@ -31,11 +31,15 @@ pub struct Cell {
 
 impl Cell {
     fn offset(&self, table: &Table) -> usize {
-        if self.row >= table.row_count || self.col >= table.col_count {
+        if !self.is_valid(table) {
             panic!("Table index (col:{},row :{}) out of bounds (col_count:{},row_count:{})",
                    self.col, self.row, table.col_count, table.row_count);
         }
         (self.row * table.col_count + self.col) as usize
+    }
+
+    pub fn is_valid(&self, table: &Table) -> bool {
+        self.row < table.row_count && self.col < table.col_count
     }
 }
 
