@@ -4,7 +4,7 @@ mod table;
 use crate::game::*;
 use crate::table::*;
 
-use druid::kurbo::Line;
+use druid::kurbo::*;
 use druid::piet::{FontBuilder, ImageFormat, InterpolationMode, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Data, Env, Lens, LocalizedString, Widget, WindowDesc, WidgetExt, Rect, Point, Color};
@@ -20,72 +20,73 @@ struct GameState {
     //game: Game,
 }
 
-trait Paintable {
-    fn paint(&self, ctx: &mut PaintCtx, area: &Rect);
-}
-
-impl Paintable for Figure {
-    fn paint(&self, ctx: &mut PaintCtx, area: &Rect) {}
-
-}
-/*
-impl Paintable for Figure::X {
-    fn paint(&self, ctx: &mut PaintCtx, area: &Rect) {
-
-    }
-}*/
-
 impl TableWidget {
     const MARGIN: Size = Size::new(15.0, 15.0);
-    const CELL_SIZE: Size = Size::new(30.0, 30.0);
-    const NET_BORDER_SIZE: Size = Size::new(2.0, 2.0);
-    const NET_COLOR: Color = Color::rgb8(0, 0, 128);
+    const CELL_PADDING: Size = Size::new(5.0, 5.0);
+    const CELL_SIZE: Size = Size::new(32.0, 32.0);
+    const BORDER_SIZE: Size = Size::new(2.0, 2.0);
+    const FIG_LINE_WIDTH: f64 = 3.0;
+    const O_COLOR: Color = Color::rgb8(0, 128, 0);
+    const X_COLOR: Color = Color::rgb8(128, 0, 0);
+    const BORDER_COLOR: Color = Color::rgb8(0, 0, 128);
     const BG_COLOR: Color = Color::WHITE;
 
-    fn paint_figure(&self, ctx: &mut PaintCtx, cell: Cell, figure: Figure) {
-
-    }
-
     fn paint_table(&self, ctx: &mut PaintCtx, table: &Table) {
-        let size = ctx.size();
-        let rect = Rect::from_origin_size(Point::ORIGIN, size);
-        ctx.fill(rect, &Self::BG_COLOR);
-        let box_width = Self::CELL_SIZE.width + Self::NET_BORDER_SIZE.width;
-        let box_height = Self::CELL_SIZE.height + Self::NET_BORDER_SIZE.height;
-
-        let x_start = Self::MARGIN.width;
-        let x_end = x_start + box_width * table.col_count() as f64;
+        let x_end = Self::CELL_SIZE.width * table.col_count() as f64;
         for horiz_offset in 0..table.row_count() + 1 {
-            let y = Self::MARGIN.height + box_height * horiz_offset as f64;
-            let line = Line::new((x_start, y), (x_end, y));
-            ctx.stroke(line, &Self::NET_COLOR, Self::NET_BORDER_SIZE.width)
+            let y = Self::CELL_SIZE.height * horiz_offset as f64;
+            let line = Line::new((0., y), (x_end, y));
+            ctx.stroke(line, &Self::BORDER_COLOR, Self::BORDER_SIZE.width)
         }
 
-        let y_start = Self::MARGIN.height;
-        let y_end = y_start + box_height * table.row_count() as f64;
+        let y_end = Self::CELL_SIZE.height * table.row_count() as f64;
         for vert_offset in 0..table.col_count() + 1 {
-            let x = Self::MARGIN.width + box_width * vert_offset as f64;
-            let line = Line::new((x, y_start), (x, y_end));
-            ctx.stroke(line, &Self::NET_COLOR, Self::NET_BORDER_SIZE.height)
+            let x = Self::CELL_SIZE.width * vert_offset as f64;
+            let line = Line::new((x, 0.), (x, y_end));
+            ctx.stroke(line, &Self::BORDER_COLOR, Self::BORDER_SIZE.height)
         }
 
         for row in 0..table.row_count() {
             let row_values = &table[row];
             for col in 0..row_values.len() {
-                row_values[col].map(|figure| {
-                    let p0 = Point { x: box_width * col as f64, y: box_height * row as f64 }
-                        + Self::MARGIN.to_vec2();
-                    let rect = Rect::from_origin_size(p0, Self::CELL_SIZE);
-                    figure.paint(ctx, &rect);
-                });
+                row_values[col].map(|figure| self
+                    .paint_figure(ctx, Cell { row, col }, figure));
             }
         }
     }
+
+    fn paint_figure(&self, ctx: &mut PaintCtx, cell: impl Into<Rect>, figure: Figure) {
+        let rect = cell.into();
+        match figure {
+            Figure::X => self.paint_x(ctx, &rect),
+            Figure::O => self.paint_o(ctx, &rect),
+        }
+    }
+
+    fn paint_x(&self, ctx: &mut PaintCtx, rect: &Rect) {
+        let line1 = Line::new((rect.x0, rect.y0), (rect.x1, rect.y1));
+        let line2 = Line::new((rect.x1, rect.y0), (rect.x0, rect.y1));
+        ctx.stroke(line1, &Self::X_COLOR, Self::FIG_LINE_WIDTH);
+        ctx.stroke(line2, &Self::X_COLOR, Self::FIG_LINE_WIDTH);
+    }
+
+    fn paint_o(&self, ctx: &mut PaintCtx, rect: &Rect) {
+        let circle = Circle::new(rect.center(), rect.width() / 2.0);
+        ctx.stroke(circle, &Self::O_COLOR, Self::FIG_LINE_WIDTH);
+    }
 }
 
-trait Painter {
-    fn paint(&self, ctx: &mut PaintCtx);
+impl Into<Rect> for Cell {
+    fn into(self) -> Rect {
+        let p0 = Point {
+            x: TableWidget::CELL_SIZE.width * self.col as f64,
+            y: TableWidget::CELL_SIZE.height * self.row as f64,
+        };
+        Rect::from_origin_size(p0, TableWidget::CELL_SIZE)
+            .inflate(-TableWidget::CELL_PADDING.width, -TableWidget::CELL_PADDING.height)
+    }
 }
+
 
 impl Widget<GameState> for TableWidget {
     fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut GameState, _env: &Env) {}
@@ -120,12 +121,22 @@ impl Widget<GameState> for TableWidget {
     // It goes event -> update -> layout -> paint, and each method can influence the next.
     // Basically, anything that changes the appearance of a widget causes a paint.
     fn paint(&mut self, ctx: &mut PaintCtx, data: &GameState, _env: &Env) {
-        self.paint_table(ctx, self.game.table())
+        let size = ctx.size();
+        let rect = Rect::from_origin_size(Point::ORIGIN, size);
+        ctx.fill(rect, &Self::BG_COLOR);
+
+        ctx.with_save(|ctx| {
+            ctx.transform(Affine::translate(Self::MARGIN.to_vec2()));
+            // ctx.clip(Rect::from_origin_size(Point::ORIGIN, size - Self::MARGIN- Self::MARGIN));
+            self.paint_table(ctx, self.game.table())
+        });
     }
 }
 
 pub fn main() {
-    let table = Table::new(10, 10);
+    let mut table = Table::new(10, 10);
+    table[Cell { row: 5, col: 5 }] = Some(Figure::X);
+    table[Cell { row: 5, col: 3 }] = Some(Figure::O);
     let game = Game::new(table, Figure::O);
 
     let window = WindowDesc::new(|| TableWidget { game }).title(
