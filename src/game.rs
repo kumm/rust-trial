@@ -8,7 +8,6 @@ pub enum Action {
 
 pub struct Game {
     table: Table,
-    players: [Box<dyn Player>; 2],
     current: Figure,
     result: Option<GameResult>,
 }
@@ -48,17 +47,16 @@ impl Game {
     pub fn new(table: Table, first_figure: Figure) -> Game {
         Game {
             table,
-            players: [Box::new(NoPlayer), Box::new(NoPlayer)],
             current: first_figure,
             result: None,
         }
     }
 
-    pub fn turn(&mut self) -> Result<TurnEvent, Error> {
+    pub fn turn(&mut self, players: [&dyn Player; 2]) -> Result<TurnEvent, Error> {
         if self.result.is_some() {
             return Err(Error::GameIsOver);
         }
-        let player = &self.players[self.current as usize];
+        let player = players[self.current as usize];
         let action = player.step(&self.table, self.current);
         match action {
             Action::Quit => {
@@ -95,10 +93,6 @@ impl Game {
         self.result.is_some()
     }
 
-    pub fn set_player(&mut self, figure: Figure, player: Box<dyn Player>) {
-        self.players[figure as usize] = player;
-    }
-
     pub fn table(&self) -> &Table {
         &self.table
     }
@@ -130,7 +124,7 @@ mod tests {
     fn start_with_no_player() {
         let table = Table::new(10, 10);
         let mut game = Game::new(table, Figure::O);
-        game.turn();
+        game.turn([&NoPlayer; 2]);
     }
 
     #[test]
@@ -138,9 +132,11 @@ mod tests {
         let table = Table::new(10, 10);
         let player_o = TestPlayer { action: Action::Quit };
         let mut game = Game::new(table, Figure::O);
-        game.set_player(Figure::O, Box::new(player_o));
 
-        let result = game.turn();
+        let mut players:[&dyn Player; 2] = [&NoPlayer; 2];
+        players[Figure::O as usize] = &TestPlayer { action: Action::Quit };
+
+        let result = game.turn(players);
 
         assert_eq!(Ok(TurnEvent {
             figure: Figure::O,
@@ -149,20 +145,21 @@ mod tests {
         }), result);
         assert!(game.is_over());
 
-        let error = game.turn();
+        players = [&NoPlayer; 2];
+        players[Figure::X as usize] = &TestPlayer { action: Action::Quit };
+
+        let error = game.turn(players);
         assert_eq!(Err(Error::GameIsOver), error);
     }
 
     #[test]
-    fn turn_put() {
+    fn turn2_put() {
         let table = Table::new(10, 10);
-        let player_o = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
-        let player_x = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
+        let mut player_o = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
+        let mut player_x = TestPlayer { action: Action::Put(Cell { col: 5, row: 5 }) };
         let mut game = Game::new(table, Figure::X);
-        game.set_player(Figure::O, Box::new(player_o));
-        game.set_player(Figure::X, Box::new(player_x));
 
-        let result = game.turn();
+        let result = game.turn([&player_x, &player_o]);
         assert_eq!(Ok(TurnEvent {
             figure: Figure::X,
             action: Action::Put(Cell { col: 5, row: 5 }),
@@ -170,13 +167,12 @@ mod tests {
         }), result);
         assert!(!game.is_over());
 
-        let error = game.turn();
+        let error = game.turn([&player_x, &player_o]);
         assert_eq!(Err(Error::InvalidStep), error);
         assert!(!game.is_over());
 
-        let x = TestPlayer { action: Action::Put(Cell { col: 1, row: 1 }) };
-        game.set_player(Figure::O, Box::new(x));
-        let result = game.turn();
+        player_o.action = Action::Put(Cell { col: 1, row: 1 });
+        let result = game.turn([&player_x, &player_o]);
         assert_eq!(Ok(TurnEvent {
             figure: Figure::O,
             action: Action::Put(Cell { col: 1, row: 1 }),

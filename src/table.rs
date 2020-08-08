@@ -21,8 +21,6 @@ impl Figure {
         }
     }
 }
-
-
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub struct Cell {
     pub row: usize,
@@ -68,7 +66,7 @@ impl Table {
     }
 }
 
-struct Iter<'a> {
+pub struct Iter<'a> {
     row: usize,
     table: &'a Table,
 }
@@ -79,7 +77,7 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         return if self.row < self.table.row_count {
             let values = &self.table[self.row];
-            self.row = self.row + 1;
+            self.row += 1;
             Some(values)
         } else {
             None
@@ -137,14 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn put_to_free_cell() {
-        let mut table = Table::new(10, 10);
-        table[Cell {row: 5, col: 5}] = Some(Figure::X);
-        assert_eq!(Some(Figure::X), table[Cell {row: 5, col: 5}]);
-    }
-
-    #[test]
-    fn cell() {
+    fn index_cell() {
         let mut table = Table::new(10, 10);
         assert_cell(&mut table, 0, 0);
         assert_cell(&mut table, 1, 0);

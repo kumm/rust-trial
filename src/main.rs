@@ -29,7 +29,6 @@ impl TableWidget {
     const O_COLOR: Color = Color::rgb8(0, 128, 0);
     const X_COLOR: Color = Color::rgb8(128, 0, 0);
     const BORDER_COLOR: Color = Color::rgb8(0, 0, 128);
-    const BG_COLOR: Color = Color::WHITE;
 
     fn paint_table(&self, ctx: &mut PaintCtx, table: &Table) {
         let x_end = Self::CELL_SIZE.width * table.col_count() as f64;
@@ -154,8 +153,8 @@ impl Controller<GameState, TableWidget> for TableController {
                     let game = &mut child.game;
                     let table = game.table();
                     if cell.is_valid(table) {
-                        game.set_player(game.figure_on_turn(), Box::new(UiPlayer { action: Action::Put(cell) }));
-                        let result = game.turn();
+                        let player = UiPlayer { action: Action::Put(cell) };
+                        let result = game.turn([&player, &player]);
                         if result.is_ok() {
                             ctx.request_paint();
                         }
@@ -185,7 +184,7 @@ pub fn main() {
     let controller = TableController {};
     let widget = TableWidget { game }
         .controller(controller)
-        .padding((15.0))
+        .padding(15.0)
         .background(Color::WHITE);
 
     let window = WindowDesc::new(|| widget).title(
